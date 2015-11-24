@@ -1,0 +1,12 @@
+# get the prod requirements
+-r pip_requirements_prod.txt
+
+# dev related stuff
+flake8
+pylint
+pyhamcrest
+mock
+watchdog
+pynt
+pexpect
+pytest
