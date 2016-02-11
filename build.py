@@ -31,7 +31,7 @@ def flake():
 
 
 @task(flake)
-def test():
+def test(test_identifier=None):
     """Runs our unit tests"""
     # UNIT_TESTING environment variable changes some decorators
     # to be pass throughs
