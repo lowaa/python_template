@@ -16,6 +16,9 @@ ch.setFormatter(formatter)
 root.addHandler(ch)
 
 
+SOURCE_FOLDERS = ['src']
+
+
 @task()
 def flake():
     print 'flake8 check'
@@ -29,14 +32,33 @@ def flake():
 
 @task(flake)
 def test():
-    '''Runs our unit tests'''
+    """Runs our unit tests"""
+    # UNIT_TESTING environment variable changes some decorators
+    # to be pass throughs
+    os.environ['UNIT_TESTING'] = 'unit testing'
     # jumping through a few hoops to getting coloured text printed out
-    result = execute_sh('py.test -s src')
+    ALL_TESTS = '-s wts_core -s wts_web -s background_worker -s minestar'
+    if test_identifier is None:
+        # Discover tests in all of the source folders
+        src_args = []
+        for folder in SOURCE_FOLDERS:
+            src_args.append('-s {0}'.format(folder))
+        test_str = ' '.join(src_args)
+    else:
+        print 'Running with test identifier : ' + test_identifier
+        test_str = test_identifier
+
+    result = execute_sh('py.test {0} --junitxml=test_results/junit_results.xml'.format(test_str))
     print result
 
 
+def create_observer(handler, path):
+    observer = Observer()
+    observer.schedule(handler, path, recursive=True)
+    return observer
+
 @task()
-def watchtest():
+def watchtest(test_identifier=None):
     '''Watching files for changes and runs tests'''
 
     class WatchTestsEventHandler(PatternMatchingEventHandler):
@@ -52,7 +74,7 @@ def watchtest():
                 # it's ok if the file does not exist
                 print 'Failed to delete file ' + file_to_remove
             try:
-                result = execute_sh('pynt test')
+                result = execute_sh("pynt 'test[{0}]'".format(test_identifier if test_identifier is not None else ''))
                 print result
 
             except:
@@ -64,15 +86,20 @@ def watchtest():
         def on_created(self, event):
             self.run_tests(event)
 
-    observer = Observer()
-    observer.schedule(WatchTestsEventHandler(), 'src', recursive=True)
-    observer.start()
+    handler = WatchTestsEventHandler()
+    observers = []
+    for folder in SOURCE_FOLDERS:
+        observers.append(create_observer(handler, folder))
+
+    for ob in observers:
+        ob.start()
     try:
         while True:
             time.sleep(1)
     except KeyboardInterrupt:
-        observer.stop()
-    observer.join()
+        for ob in observers:
+            ob.stop()
+            ob.join()
 
 # Utility stuff ----------------------------
 
