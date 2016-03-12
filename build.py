@@ -1,6 +1,7 @@
 import os
 import sys
 import logging
+from collections import namedtuple
 from pynt import task
 from watchdog.observers import Observer
 from watchdog.events import PatternMatchingEventHandler
@@ -23,8 +24,7 @@ SOURCE_FOLDERS = ['src']
 def flake():
     print 'flake8 check'
     result = execute_sh('flake8 src')
-    print result
-    if result:
+    if result.exitstatus != 0:
         print_result_text('Flake errors detected, see above', ShColor.FAIL)
     else:
         print_result_text('Flake check passed', ShColor.OKGREEN)
@@ -48,8 +48,7 @@ def test(test_identifier=None):
         print 'Running with test identifier : ' + test_identifier
         test_str = test_identifier
 
-    result = execute_sh('py.test {0} --junitxml=test_results/junit_results.xml'.format(test_str))
-    print result
+    execute_sh('py.test {0} --junitxml=test_results/junit_results.xml'.format(test_str))
 
 
 def create_observer(handler, path):
@@ -74,8 +73,7 @@ def watchtest(test_identifier=None):
                 # it's ok if the file does not exist
                 print 'Failed to delete file ' + file_to_remove
             try:
-                result = execute_sh("pynt 'test[{0}]'".format(test_identifier if test_identifier is not None else ''))
-                print result
+                execute_sh("pynt 'test[{0}]'".format(test_identifier if test_identifier is not None else ''))
 
             except:
                 root.exception('Error running tests')
@@ -115,11 +113,30 @@ class ShColor:
     UNDERLINE = '\033[4m'
 
 
-def execute_sh(cmd):
+ShellResult = namedtuple('ShellResult', 'output exitstatus signalstatus')
+
+
+class ExecuteShellError(Exception):
+    pass
+
+
+def execute_sh(cmd,
+               abort_on_error=False,
+               print_output=True):
     '''Execute a shell command'''
     child = pexpect.spawn(cmd)
     child.expect(pexpect.EOF)
-    return child.before
+    if child.isalive():
+        child.wait()
+    output = child.before
+    if print_output:
+        print output
+    if abort_on_error:
+        if child.exitstatus != 0:
+            raise ExecuteShellError('Error excuting command: {0}'.format(cmd))
+    return ShellResult(output=output,
+                       exitstatus=child.exitstatus,
+                       signalstatus=child.signalstatus)
 
 
 def print_result_text(text, color):
