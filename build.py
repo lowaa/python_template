@@ -37,7 +37,6 @@ def test(test_identifier=None):
     # to be pass throughs
     os.environ['UNIT_TESTING'] = 'unit testing'
     # jumping through a few hoops to getting coloured text printed out
-    ALL_TESTS = '-s wts_core -s wts_web -s background_worker -s minestar'
     if test_identifier is None:
         # Discover tests in all of the source folders
         src_args = []
@@ -55,6 +54,7 @@ def create_observer(handler, path):
     observer = Observer()
     observer.schedule(handler, path, recursive=True)
     return observer
+
 
 @task()
 def watchtest(test_identifier=None):
