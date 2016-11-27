@@ -1,0 +1,8 @@
+syntax:glob
+
+VirtualEnv
+*.pyc
+**.cache
+*.log
+.idea
+.DS_Store
