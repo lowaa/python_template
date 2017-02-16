@@ -4,3 +4,4 @@ VirtualEnv
 *.log
 .idea
 .DS_Store
+.hg
