@@ -47,7 +47,11 @@ def test(test_identifier=None):
         print 'Running with test identifier : ' + test_identifier
         test_str = test_identifier
 
-    execute_sh('py.test {0} --junitxml=test_results/junit_results.xml'.format(test_str))
+    result = execute_sh('py.test {0} --junitxml=test_results/junit_results.xml'.format(test_str))
+    
+    # Report to the outside world that the tests have failed
+    if result.exitstatus != 0:
+        exit(result.exitstatus)
 
 
 def create_observer(handler, path):
