@@ -132,7 +132,7 @@ def execute_sh(cmd,
     child.expect(pexpect.EOF)
     if child.isalive():
         child.wait()
-    output = child.before
+    output = child.before.decode('utf-8')
     if print_output:
         print output
     if abort_on_error:
