@@ -16,14 +16,13 @@ formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(messag
 ch.setFormatter(formatter)
 root.addHandler(ch)
 
-
 SOURCE_FOLDERS = ['src']
 
 
 @task()
 def flake():
-    print 'flake8 check'
-    result = execute_sh('flake8 src')
+    print('flake8 check')
+    result = _execute_sh('flake8 src')
     if result.exitstatus != 0:
         print_result_text('Flake errors detected, see above', ShColor.FAIL)
     else:
@@ -44,11 +43,11 @@ def test(test_identifier=None):
             src_args.append('-s {0}'.format(folder))
         test_str = ' '.join(src_args)
     else:
-        print 'Running with test identifier : ' + test_identifier
+        print('Running with test identifier : ' + test_identifier)
         test_str = test_identifier
 
-    result = execute_sh('py.test {0} --junitxml=test_results/junit_results.xml'.format(test_str))
-    
+    result = _execute_sh('py.test {0} --junitxml=test_results/junit_results.xml'.format(test_str))
+
     # Report to the outside world that the tests have failed
     if result.exitstatus != 0:
         exit(result.exitstatus)
@@ -72,12 +71,12 @@ def watchtest(test_identifier=None):
             try:
                 file_to_remove = './' + event.src_path + 'c'
                 os.remove(file_to_remove)
-                print 'Deleted pyc file ' + file_to_remove
+                print('Deleted pyc file ' + file_to_remove)
             except OSError:
                 # it's ok if the file does not exist
-                print 'Failed to delete file ' + file_to_remove
+                print('Failed to delete file ' + file_to_remove)
             try:
-                execute_sh("pynt 'test[{0}]'".format(test_identifier if test_identifier is not None else ''))
+                _execute_sh("pynt 'test[{0}]'".format(test_identifier if test_identifier is not None else ''))
 
             except:
                 root.exception('Error running tests')
@@ -103,6 +102,7 @@ def watchtest(test_identifier=None):
             ob.stop()
             ob.join()
 
+
 # Utility stuff ----------------------------
 
 
@@ -124,24 +124,36 @@ class ExecuteShellError(Exception):
     pass
 
 
-def execute_sh(cmd,
-               abort_on_error=False,
-               print_output=True):
-    '''Execute a shell command'''
+# Something simple to make sure python 2 and python 3 are both handled
+class StdOutBytesToFile(object):
+    def write(self, str_or_bytes_to_write):
+        if isinstance(str_or_bytes_to_write, str):
+            return sys.stdout.write(str_or_bytes_to_write)
+        return sys.stdout.write(str_or_bytes_to_write.decode(sys.stdout.encoding))
+
+    def flush(self):
+        return sys.stdout.flush()
+
+
+def _execute_sh(cmd, abort_on_error=False):
+    """Execute a shell command"""
     child = pexpect.spawn(cmd)
-    child.expect(pexpect.EOF)
+
+    # redirect the stdout of child to parent
+    child.logfile = StdOutBytesToFile()
+
+    child.expect(pexpect.EOF, timeout=1200)
     if child.isalive():
         child.wait()
-    output = child.before.decode('utf-8')
-    if print_output:
-        print output
+
     if abort_on_error:
         if child.exitstatus != 0:
-            raise ExecuteShellError('Error excuting command: {0}'.format(cmd))
-    return ShellResult(output=output,
+            raise ExecuteShellError('Error executing command: {0}'.format(cmd))
+
+    return ShellResult(output=child.before,
                        exitstatus=child.exitstatus,
                        signalstatus=child.signalstatus)
 
 
 def print_result_text(text, color):
-    print '{3}{0}============= {1} ============={2}'.format(color, text, ShColor.ENDC, ShColor.BOLD)
+    print('{3}{0}============= {1} ============={2}'.format(color, text, ShColor.ENDC, ShColor.BOLD))
